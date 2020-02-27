@@ -10,36 +10,41 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## Performer Tabulation
-###  How many performers had an acceptable candidate?
-Proportion of performers with at least one acceptable candidate broken down by month.
+###  How many performers had an acceptable paver?
+Proportion of performers with at least one acceptable paver broken down by month.
 Total number of performers is `r n_performers`.
 ```{r perf_2, echo=FALSE, results='asis'}
 df_perf_2 %>% knitr::kable(x=.)
 ```
 
+### Paver Definition
+A paver is bite sized information about the performance annotation of a particular performer, measure, and comparator.
+It represents the unit the causal pathways are designed to operate on.
+When a performer has an acceptable paver, it means they have annotations about a measure and comparator that satisfies the preconditions of a causal pathway.
+
 \newpage
-## Candidate Tabulation
-#### How many candidates are there?
-Number of candidates is the same across all months due to anaylsis method.
-All of performers in this data had to have sufficient data to generate one candidate.
+## Paver Tabulation
+#### How many pavers are there?
+Number of pavers is the same across all months due to anaylsis method.
+All of performers in this data had to have sufficient data to generate one paver.
 Performers without sufficient data (denominator < 10 for all measures) were previously excluded.
 ```{r sum_1, echo=FALSE, results='asis'}
-knitr::kable(data.frame("Number of Candidates"=n_candidates, "Number of Performers"=n_performers))
+knitr::kable(data.frame("Number of Pavers"=n_candidates, "Number of Performers"=n_performers))
 ```
 
-####  How many acceptable candidates are there?
+####  How many acceptable pavers are there?
 ```{r candi_1, echo=FALSE, results='asis'}
 knitr::kable(df_candi_1)
 ```
 
-####  How many candidates did each causal pathway accept?
+####  How many pavers did each causal pathway accept?
 ```{r path_1, echo=FALSE, results='asis'}
 df_path_1 %>% select(1:4) %>% knitr::kable(x=.)
 df_path_1 %>% select(c(1,5:7)) %>% knitr::kable(x=.)
 ```
 
-###  How many candidates per performer?
-NOTE: Uniform avg number of candidates is artifact of having an annotation (e.g. comparator type) always be applicable.
+###  How many pavers per performer?
+NOTE: Uniform avg number of pavers is artifact of having an annotation (e.g. comparator type) always be applicable.
 This means what is counted here is the number of measures-comparators for which sufficient data is was available.
 ```{r perf_1, echo=FALSE, results='asis'}
 df_perf_1 %>% select(1:4) %>% knitr::kable(x=.)
@@ -64,8 +69,8 @@ The annotations that have been run on data with `x` months filtered out are name
 For example, `positive_performance_gap_3` indicates a positive performance gap in the data 3 months back.
 
 ### Query After Swapping Annotation IRIS 
-Initially the candidates are evaluated by applying causal pathway preconditions and querying the results.
-To step back and evaluate what the candidates would have been `x` months ago, the annotations need to be altered to match the IRIs the causal pathways operate on.
+Initially the pavers are evaluated by applying causal pathway preconditions and querying the results.
+To step back and evaluate what the pavers would have been `x` months ago, the annotations need to be altered to match the IRIs the causal pathways operate on.
 This is accomplished by a simple IRI swapping scheme where the standard annotation gets swapped for the equivalent `x-1` special annotation, and the `x` special annotation gets swapped for the standard.
 
 For example, after initial evaluation and query, stepping 1 month back:
@@ -77,6 +82,6 @@ For example, after initial evaluation and query, stepping 1 month back:
     - `psdo_0000100`
     - `psdo_0000099`
     - `slowmo#Achievement`
-1. Existing triples of the form `candidate acceptable_by causal_pathway` are deleted removing accepted from the previous IRI set.
-1. Causal pathways are applied writing in new `candidate acceptable_by causal_pathway` based on the newly swapped IRIs.
+1. Existing triples of the form `paver acceptable_by causal_pathway` are deleted removing accepted from the previous IRI set.
+1. Causal pathways are applied writing in new `paver acceptable_by causal_pathway` based on the newly swapped IRIs.
 1. Summary queres are run and collected into summary file 

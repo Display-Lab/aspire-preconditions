@@ -4,3 +4,4 @@ cansmash_out/*
 
 # Andible Galaxy roles
 provisioning/ec2/roles/**
+.Rproj.user
