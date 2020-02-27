@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+# Query script for neptune cluster
+
+END_POINT="{{ db_cluster_endpoint }}"
+PORT=8182
+
+
+# Count Candidates
+read -d '' QWEREE <<'QWEREE'
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+PREFIX obo: <http://purl.obolibrary.org/obo/> 
+PREFIX slowmo: <http://example.com/slowmo#> 
+
+SELECT (COUNT(?candi) as ?count) 
+FROM <http://example.com/spek>
+WHERE { 
+  ?candi a obo:cpo_0000053 . 
+}
+QWEREE
+
+# Trim the endlines off the query to accomodate Neptune's HTTP bullshit
+QUERY=${QWEREE//$'\n'/ }
+
+curl -X POST --data-binary "query=${QUERY}" "${END_POINT}:${PORT}/sparql"

@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+
+# Default to 8182 port
+END_POINT="{{ db_cluster_endpoint }}"
+PORT=${PORT:-8182}
+
+# COMMON HEADER
+read -r -d '' HEADER_TMPLT <<'HDR'
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX obo: <http://purl.obolibrary.org/obo/>
+PREFIX slowmo: <http://example.com/slowmo#>
+HDR
+HEADER=${HEADER_TMPLT//$'\n'/ }
+
+# Count stricter accepted candidates
+read -r -d '' ST_ACCEPTED <<'SACCEPTED'
+SELECT (COUNT(DISTINCT ?candi) as ?count)
+WHERE {
+  ?candi slowmo:acceptable_by ?path .
+  ?candi a obo:cpo_0000053 .
+}
+SACCEPTED
+QUERY=${HEADER}${ST_ACCEPTED//$'\n'/ }
+echo "querying accepted"
+curl -X POST --data-binary "query=${QUERY}" "${END_POINT}:${PORT}/sparql"
+
+# Delete acceptable_by
+read -r -d '' UPD_SPARQL <<UPDSPARQL
+WITH <http://example.com/spek>
+DELETE { ?candi slowmo:acceptable_by ?path }
+WHERE {
+  ?candi slowmo:acceptable_by ?path .
+}
+UPDSPARQL
+
+echo "removing accepts"
+UPDATE=${HEADER}${UPD_SPARQL//$'\n'/ }
+curl -X POST --data-binary "update=${UPDATE}" "${END_POINT}:${PORT}/sparql"
+
+echo "querying accepted"
+curl -X POST --data-binary "query=${QUERY}" "${END_POINT}:${PORT}/sparql"

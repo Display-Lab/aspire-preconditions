@@ -1,0 +1,61 @@
+---
+- hosts: all
+  become: yes
+  tags:
+    - prereqs
+  tasks:
+    - name: Install packages
+      yum:
+        name: "{{packages}}"
+      vars:
+        packages:
+          - jq
+          - curl
+          - git
+
+- hosts: all
+  tags:
+    - scripts
+  vars:
+    db_cluster_endpoint: "{{ lookup('env','DBClusterEndpoint') }}"
+    db_cluster_port: "{{ lookup('env','DBClusterPort') }}"
+    db_cluster_id: "{{ lookup('env','DBClusterId') }}"
+    s3_role_arn: "{{ lookup('env','NeptuneLoadFromS3IAMRoleArn') }}"
+  tasks:
+    - name: Create scripts directory
+      file:
+        path: /home/ec2-user/scripts
+        state: directory
+    - name: Copy over templates
+      template:
+        src: "{{ item }}"
+        dest: /home/ec2-user/scripts/{{ item | basename | regex_replace('\.j2$', '') }}
+        mode: "0755"
+      with_fileglob:
+        - remote_scripts/*.j2
+
+
+- hosts: all
+  tags: 
+    - thinkpudding
+  tasks:
+    - name: Install Think Pudding from github
+      git:
+        clone: yes
+        force: yes
+        depth: 1
+        version: neptune
+        repo: "https://github.com/Display-Lab/think-pudding.git"
+        dest: /home/ec2-user/think-pudding
+    - name: Make user specific bin directory
+      file:
+        path: /home/ec2-user/bin
+        state: directory
+        owner: ec2-user
+        group: ec2-user
+        mode: '2755'
+    - name: Add symlink to bin script
+      file:
+        path: /home/ec2-user/bin/thinkneptune.sh
+        state: link
+        src: /home/ec2-user/think-pudding/bin/thinkneptune.sh

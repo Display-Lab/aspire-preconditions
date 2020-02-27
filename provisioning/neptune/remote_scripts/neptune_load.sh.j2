@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+
+END_POINT="{{ db_cluster_endpoint }}"
+PORT="{{ db_cluster_port }}"
+IAM_ROLE_ARN="{{ s3_role_arn }}"
+FORMAT="ntriples"
+AWS_REGION="us-east-1"
+
+SPEK_GRAPH="http://example.com/spek"
+SPEK_SOURCE="s3://mpog-preconditions/graph.nt"
+
+CAUSAL_GRAPH="http://example.com/seeps"
+CAUSAL_SOURCE="s3://display-lab/causal-pathways.nt"
+
+read -d '' -r SPEK_TEMPLATE <<JTEMPLATE
+{
+  "source" : "${SPEK_SOURCE}",
+  "format" : "${FORMAT}",
+  "iamRoleArn" : "${IAM_ROLE_ARN}",
+  "region" : "${AWS_REGION}",
+  "failOnError" : "FALSE",
+  "parallelism" : "HIGH",
+  "updateSingleCardinalityProperties" : "FALSE",
+  "parserConfiguration" : {"namedGraphUri" : "${SPEK_GRAPH}"}
+}
+JTEMPLATE
+
+read -d '' -r CP_TEMPLATE <<CPTEMPLATE
+{
+  "source" : "${CAUSAL_SOURCE}",
+  "format" : "${FORMAT}",
+  "iamRoleArn" : "${IAM_ROLE_ARN}",
+  "region" : "${AWS_REGION}",
+  "failOnError" : "FALSE",
+  "parallelism" : "HIGH",
+  "updateSingleCardinalityProperties" : "FALSE",
+  "parserConfiguration" : {"namedGraphUri" : "${CAUSAL_GRAPH}"}
+}
+CPTEMPLATE
+
+# Load Causal Pathwways
+JSON_STRING=$( jq -n "${CP_TEMPLATE}" )
+
+curl -v -X POST -H 'Content-Type: application/json'\
+        "${END_POINT}:${PORT}/loader"\
+        -d "${JSON_STRING}"
+
+# Load Spek Pathwways
+JSON_STRING=$( jq -n "${SPEK_TEMPLATE}" )
+
+curl -v -X POST -H 'Content-Type: application/json'\
+        "${END_POINT}:${PORT}/loader"\
+        -d "${JSON_STRING}"

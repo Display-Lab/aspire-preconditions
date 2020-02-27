@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+
+# Query script for neptune cluster
+
+END_POINT="{{ db_cluster_endpoint }}"
+PORT=8182
+
+# COMMON HEADER
+read -r -d '' HEADER_TMPLT <<'HDR'
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX obo: <http://purl.obolibrary.org/obo/>
+PREFIX slowmo: <http://example.com/slowmo#>
+HDR
+HEADER=${HEADER_TMPLT//$'\n'/}
+
+# Count Think pudding filter
+read -r -d '' AD_HOC <<'ADHOC'
+SELECT (COUNT(DISTINCT ?candi) as ?acc_count)
+USING <http://example.com/spek>
+USING <http://example.com/seeps>
+WHERE {
+  ?path a obo:cpo_0000029 .
+  ?candi a obo:cpo_0000053 .
+
+  FILTER NOT EXISTS {
+    ?path slowmo:HasPrecondition ?attr .
+    ?attr a ?atype .
+    FILTER NOT EXISTS {
+      ?candi obo:RO_0000091 ?disp .
+      ?disp a ?atype
+    }
+  }
+}
+ADHOC
+
+# Replace endlines with space to accomodate Neptune's HTTP bullshit
+QUERY=${HEADER}${AD_HOC//$'\n'/ }
+curl -X POST --data-binary "query=${QUERY}" "${END_POINT}:${PORT}/sparql"

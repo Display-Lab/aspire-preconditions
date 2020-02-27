@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+
+# Query script for neptune cluster
+END_POINT="{{ db_cluster_endpoint }}"
+PORT=8182
+
+# COMMON HEADER
+read -r -d '' HEADER_TMPLT <<'HDR'
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX obo: <http://purl.obolibrary.org/obo/>
+PREFIX slowmo: <http://example.com/slowmo#>
+HDR
+HEADER=${HEADER_TMPLT//$'\n'/ }
+
+# Count Candidates
+read -r -d '' QCANDI <<'QCANDI'
+SELECT (COUNT(?candi) as ?count)
+FROM <http://example.com/spek>
+WHERE {
+  ?candi a obo:cpo_0000053 .
+}
+QCANDI
+QUERY=${HEADER}${QCANDI//$'\n'/ }
+curl -X POST --data-binary "query=${QUERY}" "${END_POINT}:${PORT}/sparql" |\
+  jq '{q: "QCANDI"} + .'
+#######
+
+# Count stricter accepted candidates
+read -r -d '' ST_ACCEPTED <<'SACCEPTED'
+SELECT (COUNT(DISTINCT ?candi) as ?count)
+FROM <http://example.com/spek>
+WHERE {
+  ?candi slowmo:acceptable_by ?path .
+  ?candi a obo:cpo_0000053 .
+}
+SACCEPTED
+QUERY=${HEADER}${ST_ACCEPTED//$'\n'/ }
+curl -X POST --data-binary "query=${QUERY}" "${END_POINT}:${PORT}/sparql" |\
+  jq '{q: "SACCEPTED"} + .'
+#######
+
+# Count ancestor performers
+read -r -d '' ANCEST <<'ANCEST'
+SELECT (COUNT(DISTINCT(?perf)) as ?count)
+FROM <http://example.com/spek>
+WHERE {
+  ?candi slowmo:AncestorPerformer ?perf
+}
+ANCEST
+QUERY=${HEADER}${ANCEST//$'\n'/ }
+curl -X POST --data-binary "query=${QUERY}" "${END_POINT}:${PORT}/sparql" |\
+  jq '{q: "ANCEST"} + .'
+#######
+
+# Count ancestor performers of accepted candidates
+read -r -d '' ACCANDI <<'ACCANDI'
+SELECT (COUNT(DISTINCT(?perf)) as ?count)
+FROM <http://example.com/spek>
+WHERE {
+  ?candi slowmo:AncestorPerformer ?perf .
+  ?candi slowmo:acceptable_by ?path .
+}
+ACCANDI
+QUERY=${HEADER}${ACCANDI//$'\n'/ }
+curl -X POST --data-binary "query=${QUERY}" "${END_POINT}:${PORT}/sparql"
+#######
+
+# Count causal pathways accepts
+read -r -d '' CPATHS <<'CPATHS'
+SELECT ?path (COUNT(?candi) as ?count)
+FROM <http://example.com/spek>
+WHERE {
+  ?candi slowmo:acceptable_by ?path .
+}
+GROUP BY ?path
+CPATHS
+QUERY=${HEADER}${CPATHS//$'\n'/ }
+curl -X POST --data-binary "query=${QUERY}" "${END_POINT}:${PORT}/sparql" |\
+  jq '{q: "CPATHS"} + .'
+#######
