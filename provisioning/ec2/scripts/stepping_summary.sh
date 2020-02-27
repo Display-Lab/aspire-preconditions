@@ -1,1 +1,1 @@
-/home/grosscol/workspace/vra/preconditions/stepping_summary.sh
+../../../scripts/stepping_summary.sh

@@ -1,1 +1,1 @@
-/home/grosscol/workspace/vra/preconditions/summary_query.sh
+../../../scripts/summary_query.sh
