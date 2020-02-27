@@ -1,0 +1,181 @@
+Description: Create big Fuseki instance for preconditions analysis
+Parameters:
+  Env:
+    Description: 'Environment tag, e.g. prod, nonprod.'
+    Default: research
+    Type: String
+    AllowedPattern: '[a-z0-9]+'
+    MaxLength: 15
+  FusekiInstanceType:
+    Description: Fuseki host ec2 instance type
+    Type: String
+    Default: x1e.xlarge
+    AllowedValues:
+      - x1e.xlarge
+      - x1e.2xlarge
+  FusekiAMI:
+    Description: Fuseki host ami
+    Type: String
+    Default: ami-062f7200baf2fa504
+  KeyName:
+    Description: Name of an EC2 KeyPair to enable SSH access to the instance.
+    Type: 'AWS::EC2::KeyPair::KeyName'
+    ConstraintDescription: must be the name of an existing EC2 KeyPair.
+  SSHLocation:
+    Description: 'The IP address range for accessing the bastion server over SSH.'
+    Type: String
+    MinLength: '9'
+    MaxLength: '18'
+    Default: 0.0.0.0/0
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+    ConstraintDescription: must be a valid IP CIDR range of the form x.x.x.x/x.
+Resources:
+  FusekiSecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
+    Properties:
+      VpcId: !Ref VPC
+      GroupDescription: Allow access SSH traffic
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '22'
+          ToPort: '22'
+          CidrIp: !Ref SSHLocation
+  FusekiS3Role:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: '/'
+  FusekiS3Policy:
+    Type: 'AWS::IAM::Policy'
+    Properties:
+      PolicyName: FusekiS3Policy
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Action:
+              - 's3:PutObject'
+              - 's3:GetObject'
+              - 's3:GetObjectVersion'
+              - 's3:GetObjectVersionTagging'
+              - 's3:ListBucket'
+              - 's3:ListBucketVersions'
+            Resource: 
+              - 'arn:aws:s3:::preconditions/*'
+              - 'arn:aws:s3:::preconditions'
+      Roles:
+        - !Ref FusekiS3Role
+  VPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: 172.30.0.0/16
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      Tags:
+        - Key: Name
+          Value: !Sub 'Fuseki-${Env}'
+        - Key: StackId
+          Value: !Sub '${AWS::StackId}'
+        - Key: Stack
+          Value: !Sub '${AWS::Region}-${AWS::StackName}'
+        - Key: Application
+          Value: Preconditions Analysis
+  IGWAtt:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      InternetGatewayId: !Ref IGW
+      VpcId: !Ref VPC
+    DependsOn:
+      - VPC
+      - IGW
+  IGW:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub 'Fuseki-${Env}'
+        - Key: StackId
+          Value: !Sub '${AWS::StackId}'
+        - Key: Stack
+          Value: !Sub '${AWS::Region}-${AWS::StackName}'
+        - Key: Application
+          Value: Preconditions Analysis
+  PublicRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+    DependsOn:
+      - VPC
+  PublicRoute:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref IGW
+      RouteTableId: !Ref PublicRouteTable
+    DependsOn:
+      - IGWAtt
+  PubSubnet:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      CidrBlock: 172.30.4.0/24
+      MapPublicIpOnLaunch: 'true'
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select 
+        - 0
+        - !GetAZs ''
+  SubnetRTAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    DependsOn:
+      - PubSubnet
+      - PublicRouteTable
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PubSubnet
+  FusekiHost:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: !Ref FusekiInstanceType 
+      ImageId: !Ref FusekiAMI 
+      KeyName: !Ref KeyName
+      IamInstanceProfile: !Ref FusekiInstanceProfile
+      NetworkInterfaces:
+        - GroupSet:
+            - !Ref FusekiSecurityGroup
+          AssociatePublicIpAddress: 'true'
+          DeviceIndex: '0'
+          DeleteOnTermination: 'true'
+          SubnetId: !Ref PubSubnet
+      Tags:
+        - Key: Name
+          Value: !Sub 'Fuseki-${Env}'
+        - Key: StackId
+          Value: !Sub '${AWS::StackId}'
+        - Key: Role
+          Value: Analysis
+  FusekiInstanceProfile:
+    DependsOn: 
+      - FusekiS3Policy
+    Type: AWS::IAM::InstanceProfile
+    Properties: 
+      InstanceProfileName: FusekiProfile
+      Path: '/'
+      Roles: 
+        - !Ref FusekiS3Role
+Outputs:
+  FusekiIp:
+    Description: Public IP of the fuseki host
+    Value: !GetAtt FusekiHost.PublicIp
+  VPC:
+    Description: VPC
+    Value: !Ref VPC
+  SshKeyName:
+    Description: Name of the ssh key to access fuseki host
+    Value: !Ref KeyName
+Metadata: {}

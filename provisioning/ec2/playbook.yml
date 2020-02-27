@@ -1,0 +1,137 @@
+---
+- hosts: Analysis
+  become: yes
+  tags:
+    - prereqs
+  tasks:
+    - name: Install packages
+      yum:
+        name: "{{packages}}"
+      vars:
+        packages:
+          - java
+          - git
+          - gcc
+          - openssl-devel
+          - readline-devel
+          - zlib-devel
+          - jq
+          - wget
+    - name: Make user specific bin directory
+      file:
+        path: /home/ec2-user/bin
+        state: directory
+        owner: ec2-user
+        group: ec2-user
+        mode: '2755'
+
+- hosts: Analysis
+  tags:
+    - ruby
+  gather_facts: true # https://github.com/zzet/ansible-rbenv-role/issues/37
+  roles:
+    - role: zzet.rbenv
+  vars:
+    rbenv:
+      env: user
+      version: v1.1.2
+      default_ruby: 2.6.5
+      rubies:
+      - version: 2.6.5
+        env:
+          RUBY_CONFIGURE_OPTS: "--disable-install-doc --enable-shared"
+    rbenv_users:
+      - ec2-user
+
+- hosts: Analysis
+  tags: 
+    - thinkpudding
+  tasks:
+    - name: Install Think Pudding from github
+      git:
+        clone: yes
+        force: yes
+        depth: 1
+        repo: "https://github.com/Display-Lab/think-pudding.git"
+        dest: /home/ec2-user/think-pudding
+    - name: Add symlink to bin script
+      file:
+        path: /home/ec2-user/bin/thinkpudding.sh
+        state: link
+        src: /home/ec2-user/think-pudding/bin/thinkpudding.sh
+
+- hosts: Analysis
+  tags: 
+    - kb
+  tasks:
+    - name: Checkout knowledge base from github
+      git:
+        clone: yes
+        force: yes
+        depth: 1
+        repo: "https://github.com/Display-Lab/knowledge-base.git"
+        dest: /home/ec2-user/kb
+
+- hosts: Analysis
+  become: yes
+  tags:
+    - fuseki
+  tasks:
+    - name: Make fuseki directory
+      file:
+        path: /opt/fuseki
+        state: directory
+        owner: ec2-user
+        group: ec2-user
+        mode: '2775'
+    - name: Unpack fuseki
+      unarchive:
+        remote_src: yes
+        src: http://mirror.olnevhost.net/pub/apache/jena/binaries/apache-jena-fuseki-3.14.0.tar.gz
+        dest: /opt/fuseki/
+        owner: ec2-user
+        group: ec2-user
+        mode: '2775'
+
+- hosts: Analysis
+  tags:
+    - syms
+  tasks:
+    - name: Add symlink to bin script
+      file:
+        path: /home/ec2-user/bin/thinkpudding.sh
+        state: link
+        src: /home/ec2-user/think-pudding/bin/thinkpudding.sh
+    - name: symlink fuseki-server into local bin
+      file:
+        path: /home/ec2-user/bin/fuseki-server
+        state: link
+        src: /opt/fuseki/apache-jena-fuseki-3.14.0/fuseki-server
+    - name: find all files in fuseki bin
+      find:
+        file_type: file
+        paths: 
+          - /opt/fuseki/apache-jena-fuseki-3.14.0/bin/
+      register: find_results
+    - name: local bin symlinks to fuseki/bin contents
+      file:
+        path: "/home/ec2-user/bin/{{item.path | basename}}"
+        state: link
+        src: "{{ item.path }}"
+      with_items: "{{ find_results.files }}"
+
+
+- hosts: Analysis
+  tags:
+    - analysis
+  tasks:
+    - name: Create analysis scripts directory
+      file:
+        path: /home/ec2-user/analysis
+        state: directory
+    - name: Copy over analysis files
+      copy:
+        src: scripts/
+        dest: /home/ec2-user/analysis
+        mode: '0755'
+        local_follow: yes

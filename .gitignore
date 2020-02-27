@@ -1,3 +1,6 @@
 data/*
 bitstomach_out/*
 cansmash_out/*
+
+# Andible Galaxy roles
+provisioning/ec2/roles/**

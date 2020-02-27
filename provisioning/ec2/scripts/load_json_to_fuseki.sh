@@ -1,0 +1,1 @@
+/home/grosscol/workspace/vra/preconditions/load_json_to_fuseki.sh

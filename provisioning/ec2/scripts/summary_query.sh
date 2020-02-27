@@ -1,0 +1,1 @@
+/home/grosscol/workspace/vra/preconditions/summary_query.sh
